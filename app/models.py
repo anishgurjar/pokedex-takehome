@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -115,6 +115,53 @@ class Pokemon(Base):
     evolution_chain_id: Mapped[int | None] = mapped_column(default=None)
 
 
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    __table_args__ = (
+        CheckConstraint("trim(name) <> ''", name="chk_campaigns_name_nonempty"),
+        CheckConstraint(
+            "trim(description) <> ''", name="chk_campaigns_description_nonempty"
+        ),
+        CheckConstraint("trim(region) <> ''", name="chk_campaigns_region_nonempty"),
+        CheckConstraint(
+            "status IN ('draft', 'active', 'completed', 'archived')",
+            name="chk_campaigns_status",
+        ),
+        CheckConstraint(
+            "end_date >= start_date", name="chk_campaigns_date_window_valid"
+        ),
+        Index("idx_campaigns_region_status", "region", "status"),
+        Index("idx_campaigns_status_start_end", "status", "start_date", "end_date"),
+    )
+
+    name: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str] = mapped_column(Text)
+    region: Mapped[str] = mapped_column(String(100))
+    start_date: Mapped[date]
+    end_date: Mapped[date]
+    id: Mapped[str] = mapped_column(
+        primary_key=True,
+        init=False,
+        default_factory=generate_uuid,
+        insert_default=generate_uuid,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="draft",
+        insert_default="draft",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        init=False,
+        default_factory=datetime.utcnow,
+        insert_default=datetime.utcnow,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        init=False,
+        default_factory=datetime.utcnow,
+        insert_default=datetime.utcnow,
+    )
+
+
 class Sighting(Base):
     __tablename__ = "sightings"
     __table_args__ = (
@@ -142,6 +189,7 @@ class Sighting(Base):
             "notes IS NULL OR trim(notes) <> ''", name="chk_sightings_notes_nonempty"
         ),
         Index("idx_sightings_date_id_desc", "date", "id"),
+        Index("idx_sightings_campaign_date_id", "campaign_id", "date", "id"),
         Index("idx_sightings_region_date_id", "region", "date", "id"),
         Index("idx_sightings_pokemon_date_id", "pokemon_id", "date", "id"),
         Index("idx_sightings_ranger_date_id", "ranger_id", "date", "id"),
@@ -156,6 +204,10 @@ class Sighting(Base):
     time_of_day: Mapped[str]
     height: Mapped[float]
     weight: Mapped[float]
+    campaign_id: Mapped[str | None] = mapped_column(
+        ForeignKey("campaigns.id", ondelete="RESTRICT"),
+        default=None,
+    )
     is_shiny: Mapped[bool] = mapped_column(default=False)
     notes: Mapped[str | None] = mapped_column(Text, default=None)
     latitude: Mapped[float | None] = mapped_column(default=None)
