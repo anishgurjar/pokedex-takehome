@@ -3,14 +3,19 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.models import AppUser, Pokemon, Sighting
+from app.models import AppUser, Pokemon, Ranger, Sighting
 from app.repositories.errors import InvalidCursorError
-from app.schemas import SightingCreate, SightingListParams, SightingResponse
+from app.schemas import (
+    SightingConfirmationResponse,
+    SightingCreate,
+    SightingListParams,
+    SightingResponse,
+)
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,59 @@ class SightingRepository:
         return self.db.execute(
             select(Sighting).where(Sighting.id == sighting_id)
         ).scalar_one_or_none()
+
+    def get_confirmation_by_sighting_id(
+        self, sighting_id: str
+    ) -> SightingConfirmationResponse | None:
+        row = self.db.execute(
+            select(
+                Sighting.id,
+                Sighting.is_confirmed,
+                Sighting.confirmed_by_ranger_id,
+                AppUser.display_name,
+                Sighting.confirmed_at,
+            )
+            .outerjoin(AppUser, AppUser.id == Sighting.confirmed_by_ranger_id)
+            .where(Sighting.id == sighting_id)
+        ).one_or_none()
+        if row is None:
+            return None
+        confirmed_at = row[4]
+        if confirmed_at is not None and confirmed_at.tzinfo is None:
+            confirmed_at = confirmed_at.replace(tzinfo=UTC)
+        return SightingConfirmationResponse(
+            sighting_id=row[0],
+            is_confirmed=row[1],
+            confirmed_by_ranger_id=row[2],
+            confirmed_by_ranger_name=row[3],
+            confirmed_at=confirmed_at,
+        )
+
+    def get_ranger_display_name(self, ranger_id: str) -> str | None:
+        return self.db.execute(
+            select(AppUser.display_name)
+            .join(Ranger, Ranger.user_id == AppUser.id)
+            .where(AppUser.id == ranger_id, AppUser.role == "ranger")
+        ).scalar_one_or_none()
+
+    def mark_confirmed(
+        self,
+        sighting_id: str,
+        *,
+        confirmed_by_ranger_id: str,
+        confirmed_at: datetime,
+    ) -> bool:
+        result = self.db.execute(
+            update(Sighting)
+            .where(Sighting.id == sighting_id, Sighting.is_confirmed.is_(False))
+            .values(
+                is_confirmed=True,
+                confirmed_by_ranger_id=confirmed_by_ranger_id,
+                confirmed_at=confirmed_at,
+            )
+        )
+        self.db.commit()
+        return result.rowcount == 1
 
     def delete(self, sighting: Sighting) -> None:
         self.db.delete(sighting)

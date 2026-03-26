@@ -469,6 +469,17 @@ def generate_sightings(db, pokemon_data, rangers, num_sightings=55000):
         hour = random.randint(0, 23)
         minute = random.randint(0, 59)
 
+        is_confirmed = random.random() < 0.3 and len(rangers) > 1
+        confirmed_by_ranger_id = None
+        confirmed_at = None
+        if is_confirmed:
+            confirming_candidates = [
+                candidate for candidate in rangers if candidate.id != ranger.id
+            ]
+            confirming_ranger = random.choice(confirming_candidates)
+            confirmed_by_ranger_id = confirming_ranger.id
+            confirmed_at = datetime(year, month, day, hour, minute)
+
         sighting = Sighting(
             pokemon_id=pokemon["id"],
             ranger_id=ranger.id,
@@ -481,7 +492,9 @@ def generate_sightings(db, pokemon_data, rangers, num_sightings=55000):
             weight=round(random.uniform(0.1, 999.0), 2),
             is_shiny=random.random() < 0.012,
             notes=random.choice(SIGHTING_NOTES),
-            is_confirmed=random.random() < 0.3,
+            is_confirmed=is_confirmed,
+            confirmed_by_ranger_id=confirmed_by_ranger_id,
+            confirmed_at=confirmed_at,
         )
         sightings.append(sighting)
 

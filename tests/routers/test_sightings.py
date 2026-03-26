@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -438,3 +438,89 @@ class TestSightings:
             headers=auth_headers_for(second_ranger),
         )
         assert response.status_code == 403
+
+
+class TestSightingConfirmation:
+    def test_ranger_can_confirm_another_rangers_sighting(
+        self, client, sample_sighting, second_ranger, auth_headers_for
+    ):
+        response = client.post(
+            f"/sightings/{sample_sighting['id']}/confirm",
+            headers=auth_headers_for(second_ranger),
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "sighting_id": sample_sighting["id"],
+            "is_confirmed": True,
+            "confirmed_by_ranger_id": second_ranger["id"],
+            "confirmed_by_ranger_name": second_ranger["name"],
+            "confirmed_at": response.json()["confirmed_at"],
+        }
+        assert (
+            datetime.fromisoformat(
+                response.json()["confirmed_at"].replace("Z", "+00:00")
+            ).tzinfo
+            == UTC
+        )
+
+        details = client.get(f"/sightings/{sample_sighting['id']}/confirmation")
+        assert details.status_code == 200
+        assert details.json() == response.json()
+
+    def test_ranger_cannot_confirm_their_own_sighting(
+        self, client, sample_sighting, sample_ranger, auth_headers_for
+    ):
+        response = client.post(
+            f"/sightings/{sample_sighting['id']}/confirm",
+            headers=auth_headers_for(sample_ranger),
+        )
+
+        assert response.status_code == 409
+        assert response.json() == {
+            "detail": "Rangers cannot confirm their own sightings"
+        }
+
+    def test_sighting_cannot_be_confirmed_more_than_once(
+        self,
+        client,
+        sample_sighting,
+        second_ranger,
+        auth_headers_for,
+    ):
+        initial_confirmation = client.post(
+            f"/sightings/{sample_sighting['id']}/confirm",
+            headers=auth_headers_for(second_ranger),
+        )
+        assert initial_confirmation.status_code == 200
+
+        another_ranger = client.post(
+            "/rangers",
+            json={
+                "name": "Ranger Misty",
+                "email": "misty@pokemon-institute.org",
+                "specialization": "Water",
+            },
+        ).json()
+        another_ranger["role"] = "ranger"
+
+        repeat_response = client.post(
+            f"/sightings/{sample_sighting['id']}/confirm",
+            headers=auth_headers_for(another_ranger),
+        )
+
+        assert repeat_response.status_code == 409
+        assert repeat_response.json() == {
+            "detail": "Sighting has already been confirmed"
+        }
+
+    def test_only_rangers_can_confirm_sightings(
+        self, client, sample_sighting, sample_trainer, auth_headers_for
+    ):
+        response = client.post(
+            f"/sightings/{sample_sighting['id']}/confirm",
+            headers=auth_headers_for(sample_trainer),
+        )
+
+        assert response.status_code == 403
+        assert response.json() == {"detail": "Only rangers can access this endpoint"}

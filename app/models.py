@@ -188,8 +188,26 @@ class Sighting(Base):
         CheckConstraint(
             "notes IS NULL OR trim(notes) <> ''", name="chk_sightings_notes_nonempty"
         ),
+        CheckConstraint(
+            "(is_confirmed = 0 AND confirmed_by_ranger_id IS NULL "
+            "AND confirmed_at IS NULL) OR "
+            "(is_confirmed = 1 AND confirmed_by_ranger_id IS NOT NULL "
+            "AND confirmed_at IS NOT NULL)",
+            name="chk_sightings_confirmation_consistent",
+        ),
+        CheckConstraint(
+            "confirmed_by_ranger_id IS NULL OR confirmed_by_ranger_id <> ranger_id",
+            name="chk_sightings_no_self_confirmation",
+        ),
         Index("idx_sightings_date_id_desc", "date", "id"),
         Index("idx_sightings_campaign_date_id", "campaign_id", "date", "id"),
+        Index(
+            "idx_sightings_confirmed_region_date_id",
+            "is_confirmed",
+            "region",
+            "date",
+            "id",
+        ),
         Index("idx_sightings_region_date_id", "region", "date", "id"),
         Index("idx_sightings_pokemon_date_id", "pokemon_id", "date", "id"),
         Index("idx_sightings_ranger_date_id", "ranger_id", "date", "id"),
@@ -213,6 +231,11 @@ class Sighting(Base):
     latitude: Mapped[float | None] = mapped_column(default=None)
     longitude: Mapped[float | None] = mapped_column(default=None)
     is_confirmed: Mapped[bool] = mapped_column(default=False)
+    confirmed_by_ranger_id: Mapped[str | None] = mapped_column(
+        ForeignKey("rangers.user_id", ondelete="RESTRICT"),
+        default=None,
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(default=None)
     id: Mapped[str] = mapped_column(
         primary_key=True,
         init=False,

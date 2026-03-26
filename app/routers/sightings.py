@@ -6,11 +6,13 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
 from app.domain.campaign import CampaignLockedError, InactiveCampaignError
+from app.domain.sightings import SelfConfirmationError, SightingAlreadyConfirmedError
 from app.repositories.campaigns import CampaignRepository
 from app.repositories.errors import InvalidCursorError
 from app.repositories.sightings import SightingRepository
 from app.schemas import (
     MessageResponse,
+    SightingConfirmationResponse,
     SightingCreate,
     SightingListParams,
     SightingListResponse,
@@ -83,6 +85,46 @@ def get_sighting(sighting_id: str, db: Session = Depends(get_db)):
     if sighting is None:
         raise HTTPException(status_code=404, detail="Sighting not found")
     return sighting
+
+
+@router.post(
+    "/sightings/{sighting_id}/confirm",
+    response_model=SightingConfirmationResponse,
+)
+def confirm_sighting(
+    sighting_id: str,
+    principal: Annotated[CurrentPrincipal, Depends(require_role("ranger"))],
+    db: Session = Depends(get_db),
+):
+    service = SightingCommandService(SightingRepository(db), CampaignRepository(db))
+    try:
+        return service.confirm_sighting(
+            sighting_id, confirmed_by_ranger_id=principal.user_id
+        )
+    except LookupError as exc:
+        detail = str(exc)
+        if detail == "Campaign not found":
+            raise HTTPException(status_code=409, detail=detail) from exc
+        raise HTTPException(status_code=404, detail=detail) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (
+        CampaignLockedError,
+        SelfConfirmationError,
+        SightingAlreadyConfirmedError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get(
+    "/sightings/{sighting_id}/confirmation",
+    response_model=SightingConfirmationResponse,
+)
+def get_sighting_confirmation(sighting_id: str, db: Session = Depends(get_db)):
+    confirmation = SightingRepository(db).get_confirmation_by_sighting_id(sighting_id)
+    if confirmation is None:
+        raise HTTPException(status_code=404, detail="Sighting not found")
+    return confirmation
 
 
 @router.delete("/sightings/{sighting_id}", response_model=MessageResponse)
