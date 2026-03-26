@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 # --- Trainer ---
 
 
 class TrainerCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
 
 
 class TrainerResponse(BaseModel):
@@ -24,7 +24,7 @@ class TrainerResponse(BaseModel):
 
 class RangerCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     specialization: str
 
 
@@ -110,6 +110,26 @@ class SightingResponse(BaseModel):
     is_confirmed: bool
     pokemon_name: str | None = None
     ranger_name: str | None = None
+
+
+class SightingListParams(BaseModel):
+    pokemon_id: int | None = None
+    region: str | None = None
+    weather: (
+        Literal["sunny", "rainy", "snowy", "sandstorm", "foggy", "clear"] | None
+    ) = None
+    time_of_day: Literal["morning", "day", "night"] | None = None
+    ranger_id: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
+    limit: int = Field(default=50, ge=1, le=100)
+    cursor: str | None = None
+
+
+class SightingListResponse(BaseModel):
+    items: list[SightingResponse]
+    total_count: int
+    next_cursor: str | None
 
 
 # --- Generic ---

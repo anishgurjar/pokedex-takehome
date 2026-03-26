@@ -24,3 +24,13 @@ class TestTrainerRegistration:
     def test_get_trainer_not_found(self, client):
         response = client.get("/trainers/nonexistent-uuid")
         assert response.status_code == 404
+
+    def test_create_trainer_rejects_invalid_email(self, client):
+        response = client.post(
+            "/trainers",
+            json={
+                "name": "Trainer Red",
+                "email": "not-an-email",
+            },
+        )
+        assert response.status_code == 422

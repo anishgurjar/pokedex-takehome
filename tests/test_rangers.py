@@ -23,6 +23,17 @@ class TestRangerRegistration:
         response = client.get("/rangers/nonexistent-uuid")
         assert response.status_code == 404
 
+    def test_create_ranger_rejects_invalid_email(self, client):
+        response = client.post(
+            "/rangers",
+            json={
+                "name": "Ranger Ash",
+                "email": "not-an-email",
+                "specialization": "Electric",
+            },
+        )
+        assert response.status_code == 422
+
 
 class TestRangerSightings:
     def test_get_ranger_sightings(self, client, sample_sighting, sample_ranger):
