@@ -10,11 +10,13 @@ Usage:
 import json
 import os
 import random
-import uuid
 from datetime import datetime
+from pathlib import Path
 
-from database import Base, SessionLocal, engine
-from models import Pokemon, Ranger, Sighting
+from alembic import command
+from alembic.config import Config
+from app.database import SessionLocal
+from app.models import Pokemon, Ranger, Sighting
 
 random.seed(42)
 
@@ -401,10 +403,24 @@ SIGHTING_NOTES = [
 ]
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_SIGHTING_COUNT = 55000
+
+
+def run_migrations() -> None:
+    """Create or upgrade the database schema via Alembic."""
+    alembic_config = Config(str(PROJECT_ROOT / "alembic.ini"))
+    command.upgrade(alembic_config, "head")
+
+
 def load_pokedex_data():
-    data_path = os.path.join(os.path.dirname(__file__), "..", "data", "pokedex.json")
-    with open(data_path) as f:
-        return json.load(f)
+    data_path = PROJECT_ROOT / "data" / "pokedex_entries.json"
+    with data_path.open(encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def get_seed_sighting_count() -> int:
+    return int(os.environ.get("SEED_SIGHTING_COUNT", DEFAULT_SIGHTING_COUNT))
 
 
 def get_pokemon_for_region(all_pokemon, region_name):
@@ -455,8 +471,7 @@ def generate_sightings(db, pokemon_data, rangers, num_sightings=55000):
         minute = random.randint(0, 59)
 
         sighting = Sighting(
-            id=str(uuid.uuid4()),
-            pokemon_name=pokemon["name"],
+            pokemon_id=pokemon["id"],
             ranger_id=ranger.id,
             region=region,
             route=route,
@@ -467,7 +482,7 @@ def generate_sightings(db, pokemon_data, rangers, num_sightings=55000):
             weight=round(random.uniform(0.1, 999.0), 2),
             is_shiny=random.random() < 0.012,
             notes=random.choice(SIGHTING_NOTES),
-            confirmed=random.random() < 0.3,
+            is_confirmed=random.random() < 0.3,
         )
         sightings.append(sighting)
 
@@ -483,73 +498,73 @@ def seed_database():
     print("=== PokéTracker Database Seeder ===")
     print()
 
-    # Create tables
-    Base.metadata.create_all(bind=engine)
+    run_migrations()
 
     db = SessionLocal()
+    try:
+        # Check if already seeded
+        existing = db.query(Pokemon).count()
+        if existing > 0:
+            print("Database already contains data. Drop the database file to re-seed.")
+            print(f"  Found {existing} Pokémon species already loaded.")
+            return
 
-    # Check if already seeded
-    existing = db.query(Pokemon).count()
-    if existing > 0:
-        print("Database already contains data. Drop the database file to re-seed.")
-        print(f"  Found {existing} Pokémon species already loaded.")
-        return
+        # Load Pokémon data
+        print("Loading Pokémon species data...")
+        pokemon_data = load_pokedex_data()
+        print(f"  Found {len(pokemon_data)} species in data file.")
 
-    # Load Pokémon data
-    print("Loading Pokémon species data...")
-    pokemon_data = load_pokedex_data()
-    print(f"  Found {len(pokemon_data)} species in data file.")
+        # Insert Pokémon
+        for entry in pokemon_data:
+            pokemon = Pokemon(
+                id=entry["id"],
+                name=entry["name"],
+                type1=entry["type1"],
+                type2=entry["type2"],
+                generation=entry["generation"],
+                is_legendary=entry["is_legendary"],
+                is_mythical=entry["is_mythical"],
+                is_baby=entry["is_baby"],
+                capture_rate=entry["capture_rate"],
+                evolution_chain_id=entry.get("evolution_chain_id"),
+            )
+            db.add(pokemon)
 
-    # Insert Pokémon
-    for entry in pokemon_data:
-        pokemon = Pokemon(
-            id=entry["id"],
-            species_name=entry["name"],
-            type1=entry["type1"],
-            type2=entry["type2"],
-            generation=entry["generation"],
-            is_legendary=entry["is_legendary"],
-            is_mythical=entry["is_mythical"],
-            is_baby=entry["is_baby"],
-            capture_rate=entry["capture_rate"],
-            evolution_chain_id=entry.get("evolution_chain_id"),
+        db.commit()
+        print(f"  Loaded {len(pokemon_data)} Pokémon species.")
+
+        # Create Rangers
+        print("Creating ranger profiles...")
+        rangers = []
+        for rd in RANGER_DATA:
+            ranger = Ranger(
+                name=rd["name"],
+                email=rd["email"],
+                specialization=rd["specialization"],
+            )
+            db.add(ranger)
+            rangers.append(ranger)
+        db.commit()
+        print(f"  Created {len(rangers)} ranger profiles.")
+
+        # Generate sightings
+        generate_sightings(
+            db, pokemon_data, rangers, num_sightings=get_seed_sighting_count()
         )
-        db.add(pokemon)
 
-    db.commit()
-    print(f"  Loaded {len(pokemon_data)} Pokémon species.")
+        # Summary
+        total_pokemon = db.query(Pokemon).count()
+        total_rangers = db.query(Ranger).count()
+        total_sightings = db.query(Sighting).count()
 
-    # Create Rangers
-    print("Creating ranger profiles...")
-    rangers = []
-    for rd in RANGER_DATA:
-        ranger = Ranger(
-            id=str(uuid.uuid4()),
-            name=rd["name"],
-            email=rd["email"],
-            specialization=rd["specialization"],
-        )
-        db.add(ranger)
-        rangers.append(ranger)
-    db.commit()
-    print(f"  Created {len(rangers)} ranger profiles.")
-
-    # Generate sightings
-    generate_sightings(db, pokemon_data, rangers)
-
-    # Summary
-    total_pokemon = db.query(Pokemon).count()
-    total_rangers = db.query(Ranger).count()
-    total_sightings = db.query(Sighting).count()
-
-    print()
-    print("=== Seeding Complete ===")
-    print(f"  Pokémon species: {total_pokemon}")
-    print(f"  Rangers: {total_rangers}")
-    print(f"  Sightings: {total_sightings}")
-    print()
-
-    db.close()
+        print()
+        print("=== Seeding Complete ===")
+        print(f"  Pokémon species: {total_pokemon}")
+        print(f"  Rangers: {total_rangers}")
+        print(f"  Sightings: {total_sightings}")
+        print()
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
