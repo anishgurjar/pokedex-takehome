@@ -1,7 +1,6 @@
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.database import Base, SessionLocal, engine
 from app.models import Pokemon, Ranger, Sighting, Trainer
 from app.schemas import (
     MessageResponse,
@@ -16,8 +15,6 @@ from app.schemas import (
     UserLookupResponse,
 )
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Endeavor PokéTracker", version="0.0.1")
 
 
@@ -25,6 +22,8 @@ app = FastAPI(title="Endeavor PokéTracker", version="0.0.1")
 
 
 def get_db():
+    from app.database import SessionLocal
+
     db = SessionLocal()
     try:
         yield db

@@ -1,0 +1,1 @@
+Cleaned up the repo, wired Ruff + pre-commit, and got tests passing. Added `.env` / `.env.example`, Alembic (no runtime `create_all`), and pytest setup that loads `.env` + `.env.test` and runs migrations on ephemeral SQLite files per test so dev vs test data stay separate and future DB work is less painful.

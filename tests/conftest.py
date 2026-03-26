@@ -1,40 +1,82 @@
-import pytest
-from app.database import Base
-from app.main import app, get_db
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+"""Pytest loads `.env` and `.env.test` before the app (see `.env.test`)."""
+
+import os
+import uuid
+from collections.abc import Generator
+from pathlib import Path
+
+from dotenv import load_dotenv
+from sqlalchemy.engine.url import make_url
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env.test", override=True)
+
+# Canonical test template URL (directory is used for per-test ephemeral SQLite files).
+_TEST_DATABASE_URL_TEMPLATE = os.environ.get(
+    "DATABASE_URL", "sqlite:///./data/poketracker_test.db"
+)
+
+import pytest  # noqa: E402
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh in-memory database for each test."""
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = TestingSessionLocal()
+def _per_test_sqlite_url_and_path() -> tuple[str, Path]:
+    """Create a unique DB file next to the directory from `.env.test` DATABASE_URL."""
+    template = make_url(_TEST_DATABASE_URL_TEMPLATE)
+    if template.drivername != "sqlite":
+        msg = "pytest expects DATABASE_URL in .env.test to use sqlite"
+        raise RuntimeError(msg)
+    db_part = template.database
+    if not db_part or db_part == ":memory:":
+        test_dir = PROJECT_ROOT / "data" / "pytest_scratch"
+    else:
+        resolved = (PROJECT_ROOT / db_part).resolve()
+        test_dir = resolved.parent
+    test_dir.mkdir(parents=True, exist_ok=True)
+    path = test_dir / f"pytest_{uuid.uuid4().hex}.db"
+    url = f"sqlite:///{path.resolve()}"
+    return url, path
+
+
+@pytest.fixture
+def db_session() -> Generator[Session, None, None]:
+    """Ephemeral SQLite file per test; schema from Alembic migrations."""
+    url, path = _per_test_sqlite_url_and_path()
+    os.environ["DATABASE_URL"] = url
+
+    import app.database as db
+
+    db.configure_engine()
+
+    cfg = Config(str(PROJECT_ROOT / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.upgrade(cfg, "head")
+
+    session = db.SessionLocal()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
+        db.engine.dispose()
+        path.unlink(missing_ok=True)
+        os.environ["DATABASE_URL"] = _TEST_DATABASE_URL_TEMPLATE
 
 
-@pytest.fixture(scope="function")
-def client(db_session):
-    """Create a test client that uses the test database session."""
+@pytest.fixture
+def client(db_session: Session):
+    """FastAPI client using the migrated test database."""
+    from app.main import app, get_db
+    from fastapi.testclient import TestClient
 
     def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
+    with TestClient(app) as test_client:
+        yield test_client
     app.dependency_overrides.clear()
 
 
