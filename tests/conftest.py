@@ -68,7 +68,8 @@ def db_session() -> Generator[Session, None, None]:
 @pytest.fixture
 def client(db_session: Session):
     """FastAPI client using the migrated test database."""
-    from app.main import app, get_db
+    from app.deps import get_db
+    from app.main import app
     from fastapi.testclient import TestClient
 
     def override_get_db():
