@@ -1,18 +1,29 @@
 from datetime import date, datetime
+from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.domain.campaign.status import CampaignStatus
+from app.domain.sightings.enums import SightingWeather, TimeOfDay
+from app.domain.users import UserRole, UserStatus
+from app.time import utc_now
 from app.utils import generate_uuid
+
+
+def sql_enum_values(enum_type: type[StrEnum]) -> str:
+    return ", ".join(f"'{value.value}'" for value in enum_type)
 
 
 class AppUser(Base):
     __tablename__ = "app_users"
     __table_args__ = (
-        CheckConstraint("role IN ('trainer', 'ranger')", name="chk_app_users_role"),
         CheckConstraint(
-            "status IN ('active', 'disabled')", name="chk_app_users_status"
+            f"role IN ({sql_enum_values(UserRole)})", name="chk_app_users_role"
+        ),
+        CheckConstraint(
+            f"status IN ({sql_enum_values(UserStatus)})", name="chk_app_users_status"
         ),
         CheckConstraint(
             "trim(display_name) <> ''", name="chk_app_users_display_name_nonempty"
@@ -26,7 +37,7 @@ class AppUser(Base):
             "email_normalized = lower(trim(email))",
             name="chk_app_users_email_normalized",
         ),
-        Index("idx_app_users_email_norm", "email_normalized"),
+        Index("idx_app_users_email_norm", "email_normalized", unique=True),
         Index("idx_app_users_role_name", "role", "display_name_normalized"),
     )
 
@@ -44,18 +55,18 @@ class AppUser(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         init=False,
-        default="active",
-        insert_default="active",
+        default=UserStatus.ACTIVE.value,
+        insert_default=UserStatus.ACTIVE.value,
     )
     created_at: Mapped[datetime] = mapped_column(
         init=False,
-        default_factory=datetime.utcnow,
-        insert_default=datetime.utcnow,
+        default_factory=utc_now,
+        insert_default=utc_now,
     )
     updated_at: Mapped[datetime] = mapped_column(
         init=False,
-        default_factory=datetime.utcnow,
-        insert_default=datetime.utcnow,
+        default_factory=utc_now,
+        insert_default=utc_now,
     )
 
 
@@ -124,7 +135,7 @@ class Campaign(Base):
         ),
         CheckConstraint("trim(region) <> ''", name="chk_campaigns_region_nonempty"),
         CheckConstraint(
-            "status IN ('draft', 'active', 'completed', 'archived')",
+            f"status IN ({sql_enum_values(CampaignStatus)})",
             name="chk_campaigns_status",
         ),
         CheckConstraint(
@@ -147,18 +158,18 @@ class Campaign(Base):
     )
     status: Mapped[str] = mapped_column(
         String(20),
-        default="draft",
-        insert_default="draft",
+        default=CampaignStatus.DRAFT.value,
+        insert_default=CampaignStatus.DRAFT.value,
     )
     created_at: Mapped[datetime] = mapped_column(
         init=False,
-        default_factory=datetime.utcnow,
-        insert_default=datetime.utcnow,
+        default_factory=utc_now,
+        insert_default=utc_now,
     )
     updated_at: Mapped[datetime] = mapped_column(
         init=False,
-        default_factory=datetime.utcnow,
-        insert_default=datetime.utcnow,
+        default_factory=utc_now,
+        insert_default=utc_now,
     )
 
 
@@ -166,11 +177,11 @@ class Sighting(Base):
     __tablename__ = "sightings"
     __table_args__ = (
         CheckConstraint(
-            "weather IN ('sunny', 'rainy', 'snowy', 'sandstorm', 'foggy', 'clear')",
+            f"weather IN ({sql_enum_values(SightingWeather)})",
             name="chk_sightings_weather",
         ),
         CheckConstraint(
-            "time_of_day IN ('morning', 'day', 'night')",
+            f"time_of_day IN ({sql_enum_values(TimeOfDay)})",
             name="chk_sightings_time_of_day",
         ),
         CheckConstraint("trim(region) <> ''", name="chk_sightings_region_nonempty"),

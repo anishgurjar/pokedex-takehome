@@ -1,7 +1,10 @@
 from datetime import date, datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+
+from app.domain.campaign.status import CampaignStatus
+from app.domain.sightings.enums import SightingWeather, TimeOfDay
+from app.domain.users import UserRole, UserStatus
 
 # --- Trainer ---
 
@@ -15,7 +18,7 @@ class TrainerResponse(BaseModel):
     id: str
     name: str
     email: str
-    status: str
+    status: UserStatus
     created_at: datetime
 
 
@@ -33,7 +36,7 @@ class RangerResponse(BaseModel):
     name: str
     email: str
     specialization: str
-    status: str
+    status: UserStatus
     created_at: datetime
 
 
@@ -43,7 +46,7 @@ class RangerResponse(BaseModel):
 class UserLookupResponse(BaseModel):
     id: str
     name: str
-    role: Literal["trainer", "ranger"]
+    role: UserRole
 
 
 # --- Pokemon ---
@@ -83,8 +86,8 @@ class SightingCreate(BaseModel):
     region: str
     route: str
     date: datetime
-    weather: Literal["sunny", "rainy", "snowy", "sandstorm", "foggy", "clear"]
-    time_of_day: Literal["morning", "day", "night"]
+    weather: SightingWeather
+    time_of_day: TimeOfDay
     height: float
     weight: float
     is_shiny: bool = False
@@ -103,8 +106,8 @@ class SightingResponse(BaseModel):
     region: str
     route: str
     date: datetime
-    weather: str
-    time_of_day: str
+    weather: SightingWeather
+    time_of_day: TimeOfDay
     height: float
     weight: float
     is_shiny: bool
@@ -125,10 +128,8 @@ class SightingConfirmationResponse(BaseModel):
 class SightingListParams(BaseModel):
     pokemon_id: int | None = None
     region: str | None = None
-    weather: (
-        Literal["sunny", "rainy", "snowy", "sandstorm", "foggy", "clear"] | None
-    ) = None
-    time_of_day: Literal["morning", "day", "night"] | None = None
+    weather: SightingWeather | None = None
+    time_of_day: TimeOfDay | None = None
     ranger_id: str | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
@@ -143,9 +144,6 @@ class SightingListResponse(BaseModel):
 
 
 # --- Campaigns ---
-
-
-CampaignStatus = Literal["draft", "active", "completed", "archived"]
 
 
 class CampaignCreate(BaseModel):

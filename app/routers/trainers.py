@@ -1,9 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
+from app.domain.users import UserRole
 from app.models import AppUser, Trainer
 from app.schemas import TrainerCreate, TrainerResponse
+from app.services.users import (
+    DuplicateUserError,
+    assert_email_available,
+    build_app_user,
+    translate_user_integrity_error,
+)
 
 router = APIRouter(tags=["trainers"])
 
@@ -18,32 +26,27 @@ def _trainer_response(user: AppUser) -> TrainerResponse:
     )
 
 
-def _assert_email_available(db: Session, email: str) -> None:
-    existing = (
-        db.query(AppUser)
-        .filter(AppUser.email_normalized == email.strip().lower())
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail=f"User already exists with role '{existing.role}'",
-        )
-
-
 @router.post("/trainers", response_model=TrainerResponse)
 def create_trainer(trainer: TrainerCreate, db: Session = Depends(get_db)):
-    _assert_email_available(db, trainer.email)
-    user = AppUser(
-        role="trainer",
-        display_name=trainer.name,
-        display_name_normalized=trainer.name.strip().lower(),
-        email=trainer.email,
-        email_normalized=trainer.email.strip().lower(),
-    )
+    try:
+        assert_email_available(db, trainer.email)
+    except DuplicateUserError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from exc
+
+    user = build_app_user(role=UserRole.TRAINER, name=trainer.name, email=trainer.email)
     db.add(user)
     db.add(Trainer(user_id=user.id))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        duplicate_user_error = translate_user_integrity_error(exc)
+        if duplicate_user_error is None:
+            raise
+        raise HTTPException(
+            status_code=409,
+            detail=duplicate_user_error.detail,
+        ) from exc
     db.refresh(user)
     return _trainer_response(user)
 

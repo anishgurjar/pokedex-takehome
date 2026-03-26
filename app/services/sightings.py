@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from app.domain.campaign import Campaign, CampaignLockedError, CampaignStatus
 from app.domain.sightings import Sighting, SightingAlreadyConfirmedError
 from app.models import Campaign as CampaignRecord
@@ -7,6 +5,7 @@ from app.models import Sighting as SightingRecord
 from app.repositories.campaigns import CampaignRepository
 from app.repositories.sightings import SightingRepository
 from app.schemas import SightingConfirmationResponse, SightingCreate
+from app.time import utc_now
 from app.utils import generate_uuid
 
 
@@ -86,7 +85,7 @@ class SightingCommandService:
                 raise LookupError("Campaign not found")
             campaign = self._to_domain_campaign(campaign_record)
 
-        confirmed_at = datetime.now(UTC)
+        confirmed_at = utc_now()
         sighting_entity.confirm(
             confirmed_by_ranger_id=confirmed_by_ranger_id,
             confirmed_at=confirmed_at,

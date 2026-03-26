@@ -1,10 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
+from app.domain.users import UserRole
 from app.models import AppUser, Ranger
 from app.repositories.sightings import SightingRepository
 from app.schemas import RangerCreate, RangerResponse, SightingResponse
+from app.services.users import (
+    DuplicateUserError,
+    assert_email_available,
+    build_app_user,
+    translate_user_integrity_error,
+)
 
 router = APIRouter(tags=["rangers"])
 
@@ -20,33 +28,28 @@ def _ranger_response(user: AppUser, ranger: Ranger) -> RangerResponse:
     )
 
 
-def _assert_email_available(db: Session, email: str) -> None:
-    existing = (
-        db.query(AppUser)
-        .filter(AppUser.email_normalized == email.strip().lower())
-        .first()
-    )
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail=f"User already exists with role '{existing.role}'",
-        )
-
-
 @router.post("/rangers", response_model=RangerResponse)
 def create_ranger(ranger: RangerCreate, db: Session = Depends(get_db)):
-    _assert_email_available(db, ranger.email)
-    user = AppUser(
-        role="ranger",
-        display_name=ranger.name,
-        display_name_normalized=ranger.name.strip().lower(),
-        email=ranger.email,
-        email_normalized=ranger.email.strip().lower(),
-    )
+    try:
+        assert_email_available(db, ranger.email)
+    except DuplicateUserError as exc:
+        raise HTTPException(status_code=409, detail=exc.detail) from exc
+
+    user = build_app_user(role=UserRole.RANGER, name=ranger.name, email=ranger.email)
     db.add(user)
     ranger_profile = Ranger(user_id=user.id, specialization=ranger.specialization)
     db.add(ranger_profile)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        duplicate_user_error = translate_user_integrity_error(exc)
+        if duplicate_user_error is None:
+            raise
+        raise HTTPException(
+            status_code=409,
+            detail=duplicate_user_error.detail,
+        ) from exc
     db.refresh(user)
     db.refresh(ranger_profile)
     return _ranger_response(user, ranger_profile)
