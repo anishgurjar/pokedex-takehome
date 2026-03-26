@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
-from app.models import AppUser, Pokemon, Ranger, Sighting
+from app.models import AppUser, Ranger
+from app.repositories.sightings import SightingRepository
 from app.schemas import RangerCreate, RangerResponse, SightingResponse
 
 router = APIRouter(tags=["rangers"])
@@ -73,12 +74,4 @@ def get_ranger_sightings(ranger_id: str, db: Session = Depends(get_db)):
     )
     if not user:
         raise HTTPException(status_code=404, detail="Ranger not found")
-    sightings = db.query(Sighting).filter(Sighting.ranger_id == ranger_id).all()
-    result = []
-    for s in sightings:
-        pokemon = db.query(Pokemon).filter(Pokemon.id == s.pokemon_id).first()
-        resp = SightingResponse.model_validate(s)
-        resp.pokemon_name = pokemon.name if pokemon else None
-        resp.ranger_name = user.display_name
-        result.append(resp)
-    return result
+    return SightingRepository(db).list_for_ranger(ranger_id)

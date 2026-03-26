@@ -5,10 +5,48 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
-from app.models import AppUser, Pokemon, Sighting
-from app.schemas import MessageResponse, SightingCreate, SightingResponse
+from app.repositories.sightings import InvalidCursorError, SightingRepository
+from app.schemas import (
+    MessageResponse,
+    SightingCreate,
+    SightingListParams,
+    SightingListResponse,
+    SightingResponse,
+)
 
 router = APIRouter(tags=["sightings"])
+
+
+def _get_sighting_list_params(
+    params: Annotated[SightingListParams, Depends()],
+) -> SightingListParams:
+    if (
+        params.date_from is not None
+        and params.date_to is not None
+        and params.date_from > params.date_to
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="date_from must be before or equal to date_to",
+        )
+    return params
+
+
+@router.get("/sightings", response_model=SightingListResponse)
+def list_sightings(
+    params: Annotated[SightingListParams, Depends(_get_sighting_list_params)],
+    db: Session = Depends(get_db),
+):
+    repository = SightingRepository(db)
+    try:
+        result = repository.list(params)
+    except InvalidCursorError as exc:
+        raise HTTPException(status_code=400, detail="Invalid cursor") from exc
+    return SightingListResponse(
+        items=result.items,
+        total_count=result.total_count,
+        next_cursor=result.next_cursor,
+    )
 
 
 @router.post("/sightings", response_model=SightingResponse)
@@ -17,48 +55,24 @@ def create_sighting(
     principal: Annotated[CurrentPrincipal, Depends(require_role("ranger"))],
     db: Session = Depends(get_db),
 ):
-    pokemon = db.query(Pokemon).filter(Pokemon.id == sighting.pokemon_id).first()
-    if not pokemon:
+    repository = SightingRepository(db)
+    if repository.get_pokemon_name(sighting.pokemon_id) is None:
         raise HTTPException(status_code=404, detail="Pokémon not found")
 
-    new_sighting = Sighting(
-        pokemon_id=sighting.pokemon_id,
-        ranger_id=principal.user_id,
-        region=sighting.region,
-        route=sighting.route,
-        date=sighting.date,
-        weather=sighting.weather,
-        time_of_day=sighting.time_of_day,
-        height=sighting.height,
-        weight=sighting.weight,
-        is_shiny=sighting.is_shiny,
-        notes=sighting.notes,
-        latitude=sighting.latitude,
-        longitude=sighting.longitude,
-    )
-    db.add(new_sighting)
-    db.commit()
-    db.refresh(new_sighting)
-
-    resp = SightingResponse.model_validate(new_sighting)
-    resp.pokemon_name = pokemon.name
-    resp.ranger_name = principal.display_name
-    return resp
+    new_sighting = repository.create(sighting, ranger_id=principal.user_id)
+    response = repository.get_by_id(new_sighting.id)
+    if response is None:
+        raise HTTPException(status_code=500, detail="Unable to load created sighting")
+    return response
 
 
 @router.get("/sightings/{sighting_id}", response_model=SightingResponse)
 def get_sighting(sighting_id: str, db: Session = Depends(get_db)):
-    sighting = db.query(Sighting).filter(Sighting.id == sighting_id).first()
-    if not sighting:
+    repository = SightingRepository(db)
+    sighting = repository.get_by_id(sighting_id)
+    if sighting is None:
         raise HTTPException(status_code=404, detail="Sighting not found")
-
-    pokemon = db.query(Pokemon).filter(Pokemon.id == sighting.pokemon_id).first()
-    ranger = db.query(AppUser).filter(AppUser.id == sighting.ranger_id).first()
-
-    resp = SightingResponse.model_validate(sighting)
-    resp.pokemon_name = pokemon.name if pokemon else None
-    resp.ranger_name = ranger.display_name if ranger else None
-    return resp
+    return sighting
 
 
 @router.delete("/sightings/{sighting_id}", response_model=MessageResponse)
@@ -67,7 +81,8 @@ def delete_sighting(
     principal: Annotated[CurrentPrincipal, Depends(require_role("ranger"))],
     db: Session = Depends(get_db),
 ):
-    sighting = db.query(Sighting).filter(Sighting.id == sighting_id).first()
+    repository = SightingRepository(db)
+    sighting = repository.get_raw_by_id(sighting_id)
     if not sighting:
         raise HTTPException(status_code=404, detail="Sighting not found")
 
@@ -76,6 +91,5 @@ def delete_sighting(
             status_code=403, detail="You can only delete your own sightings"
         )
 
-    db.delete(sighting)
-    db.commit()
+    repository.delete(sighting)
     return MessageResponse(detail="Sighting deleted")

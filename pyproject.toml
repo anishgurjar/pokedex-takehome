@@ -9,6 +9,7 @@ description = "Pokémon Research Institute - Pokédex Tracker API"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.18.4",
+    "email-validator>=2.3.0",
     "fastapi>=0.131.0",
     "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
