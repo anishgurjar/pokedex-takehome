@@ -2,10 +2,22 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
-from app.models import Pokemon, Ranger, Sighting
+from app.models import AppUser, Pokemon, Sighting
 from app.schemas import MessageResponse, SightingCreate, SightingResponse
 
 router = APIRouter(tags=["sightings"])
+
+
+def _get_ranger_or_raise(db: Session, x_user_id: str | None) -> AppUser:
+    """Resolve X-User-ID to an active ranger, raising appropriate HTTP errors."""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-ID header is required")
+    user = db.query(AppUser).filter(AppUser.id == x_user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    if user.role != "ranger":
+        raise HTTPException(status_code=403, detail="Only rangers can log sightings")
+    return user
 
 
 @router.post("/sightings", response_model=SightingResponse)
@@ -14,12 +26,7 @@ def create_sighting(
     db: Session = Depends(get_db),
     x_user_id: str | None = Header(None),
 ):
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-ID header is required")
-
-    ranger = db.query(Ranger).filter(Ranger.id == x_user_id).first()
-    if not ranger:
-        raise HTTPException(status_code=403, detail="Only rangers can log sightings")
+    ranger = _get_ranger_or_raise(db, x_user_id)
 
     pokemon = db.query(Pokemon).filter(Pokemon.id == sighting.pokemon_id).first()
     if not pokemon:
@@ -46,7 +53,7 @@ def create_sighting(
 
     resp = SightingResponse.model_validate(new_sighting)
     resp.pokemon_name = pokemon.name
-    resp.ranger_name = ranger.name
+    resp.ranger_name = ranger.display_name
     return resp
 
 
@@ -57,11 +64,11 @@ def get_sighting(sighting_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Sighting not found")
 
     pokemon = db.query(Pokemon).filter(Pokemon.id == sighting.pokemon_id).first()
-    ranger = db.query(Ranger).filter(Ranger.id == sighting.ranger_id).first()
+    ranger = db.query(AppUser).filter(AppUser.id == sighting.ranger_id).first()
 
     resp = SightingResponse.model_validate(sighting)
     resp.pokemon_name = pokemon.name if pokemon else None
-    resp.ranger_name = ranger.name if ranger else None
+    resp.ranger_name = ranger.display_name if ranger else None
     return resp
 
 

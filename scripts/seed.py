@@ -16,7 +16,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from app.database import SessionLocal
-from app.models import Pokemon, Ranger, Sighting
+from app.models import AppUser, Pokemon, Ranger, Sighting
 
 random.seed(42)
 
@@ -404,7 +404,6 @@ SIGHTING_NOTES = [
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SIGHTING_COUNT = 55000
 
 
 def run_migrations() -> None:
@@ -420,7 +419,7 @@ def load_pokedex_data():
 
 
 def get_seed_sighting_count() -> int:
-    return int(os.environ.get("SEED_SIGHTING_COUNT", DEFAULT_SIGHTING_COUNT))
+    return int(os.environ.get("SEED_SIGHTING_COUNT", 55000))
 
 
 def get_pokemon_for_region(all_pokemon, region_name):
@@ -537,13 +536,16 @@ def seed_database():
         print("Creating ranger profiles...")
         rangers = []
         for rd in RANGER_DATA:
-            ranger = Ranger(
-                name=rd["name"],
+            user = AppUser(
+                role="ranger",
+                display_name=rd["name"],
+                display_name_normalized=rd["name"].strip().lower(),
                 email=rd["email"],
-                specialization=rd["specialization"],
+                email_normalized=rd["email"].strip().lower(),
             )
-            db.add(ranger)
-            rangers.append(ranger)
+            db.add(user)
+            db.add(Ranger(user_id=user.id, specialization=rd["specialization"]))
+            rangers.append(user)
         db.commit()
         print(f"  Created {len(rangers)} ranger profiles.")
 
