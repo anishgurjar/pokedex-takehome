@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
+from app.domain.campaigns import CampaignLockedError, InactiveCampaignError
+from app.repositories.campaigns import CampaignRepository
 from app.repositories.sightings import InvalidCursorError, SightingRepository
 from app.schemas import (
     MessageResponse,
@@ -13,6 +15,7 @@ from app.schemas import (
     SightingListResponse,
     SightingResponse,
 )
+from app.services.sightings import SightingCommandService
 
 router = APIRouter(tags=["sightings"])
 
@@ -59,7 +62,13 @@ def create_sighting(
     if repository.get_pokemon_name(sighting.pokemon_id) is None:
         raise HTTPException(status_code=404, detail="Pokémon not found")
 
-    new_sighting = repository.create(sighting, ranger_id=principal.user_id)
+    service = SightingCommandService(repository, CampaignRepository(db))
+    try:
+        new_sighting = service.create_sighting(sighting, ranger_id=principal.user_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Campaign not found") from exc
+    except InactiveCampaignError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     response = repository.get_by_id(new_sighting.id)
     if response is None:
         raise HTTPException(status_code=500, detail="Unable to load created sighting")
@@ -91,5 +100,9 @@ def delete_sighting(
             status_code=403, detail="You can only delete your own sightings"
         )
 
-    repository.delete(sighting)
+    service = SightingCommandService(repository, CampaignRepository(db))
+    try:
+        service.delete_sighting(sighting)
+    except CampaignLockedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return MessageResponse(detail="Sighting deleted")

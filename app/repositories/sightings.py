@@ -46,10 +46,13 @@ class SightingRepository:
             select(Pokemon.name).where(Pokemon.id == pokemon_id)
         ).scalar_one_or_none()
 
-    def create(self, sighting: SightingCreate, *, ranger_id: str) -> Sighting:
+    def create(
+        self, sighting: SightingCreate, *, sighting_id: str, ranger_id: str
+    ) -> Sighting:
         new_sighting = Sighting(
             pokemon_id=sighting.pokemon_id,
             ranger_id=ranger_id,
+            campaign_id=sighting.campaign_id,
             region=sighting.region,
             route=sighting.route,
             date=sighting.date,
@@ -62,6 +65,7 @@ class SightingRepository:
             latitude=sighting.latitude,
             longitude=sighting.longitude,
         )
+        new_sighting.id = sighting_id
         self.db.add(new_sighting)
         self.db.commit()
         self.db.refresh(new_sighting)

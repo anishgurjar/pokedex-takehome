@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 # --- Trainer ---
 
@@ -79,6 +79,7 @@ class PokemonSearchResult(BaseModel):
 
 class SightingCreate(BaseModel):
     pokemon_id: int
+    campaign_id: str | None = None
     region: str
     route: str
     date: datetime
@@ -98,6 +99,7 @@ class SightingResponse(BaseModel):
     id: str
     pokemon_id: int
     ranger_id: str
+    campaign_id: str | None = None
     region: str
     route: str
     date: datetime
@@ -130,6 +132,77 @@ class SightingListResponse(BaseModel):
     items: list[SightingResponse]
     total_count: int
     next_cursor: str | None
+
+
+# --- Campaigns ---
+
+
+CampaignStatus = Literal["draft", "active", "completed", "archived"]
+
+
+class CampaignCreate(BaseModel):
+    name: str
+    description: str
+    region: str
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "CampaignCreate":
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        return self
+
+
+class CampaignUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    region: str | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "CampaignUpdate":
+        if (
+            self.start_date is not None
+            and self.end_date is not None
+            and self.end_date < self.start_date
+        ):
+            raise ValueError("end_date must be on or after start_date")
+        return self
+
+
+class CampaignTransitionRequest(BaseModel):
+    to_status: CampaignStatus
+
+
+class CampaignResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: str
+    region: str
+    start_date: date
+    end_date: date
+    status: CampaignStatus
+    created_at: datetime
+    updated_at: datetime
+
+
+class CampaignContributorResponse(BaseModel):
+    id: str
+    name: str
+    sightings_count: int
+
+
+class CampaignSummaryResponse(BaseModel):
+    campaign_id: str
+    total_sightings: int
+    unique_species_observed: int
+    contributing_rangers: list[CampaignContributorResponse]
+    observation_started_at: datetime | None
+    observation_ended_at: datetime | None
 
 
 # --- Generic ---
