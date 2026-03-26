@@ -1,3 +1,4 @@
+from app.domain.sightings.enums import SightingWeather, TimeOfDay
 from app.domain.sightings.errors import (
     SelfConfirmationError,
     SightingAlreadyConfirmedError,
@@ -10,4 +11,6 @@ __all__ = [
     "Sighting",
     "SightingAlreadyConfirmedError",
     "SightingDomainError",
+    "SightingWeather",
+    "TimeOfDay",
 ]

@@ -5,9 +5,10 @@ from fastapi import Depends, Header, HTTPException
 from jwt import ExpiredSignatureError, InvalidTokenError
 
 from app.config import get_jwt_secret
+from app.domain.users import UserRole, UserStatus
 
 ALGORITHM = "HS256"
-ALLOWED_ROLES = {"trainer", "ranger"}  # TODO: Centralize this later
+ALLOWED_ROLES = {role.value for role in UserRole}
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ def _decode_access_token(token: str) -> CurrentPrincipal:
         raise HTTPException(status_code=401, detail="Token subject is required")
     if role not in ALLOWED_ROLES:
         raise HTTPException(status_code=401, detail="Token role is invalid")
-    if status != "active":
+    if status != UserStatus.ACTIVE.value:
         raise HTTPException(status_code=403, detail="User account is not active")
 
     return CurrentPrincipal(

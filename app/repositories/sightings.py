@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.schemas import (
     SightingListParams,
     SightingResponse,
 )
+from app.time import ensure_utc
 
 
 @dataclass(frozen=True)
@@ -102,9 +103,7 @@ class SightingRepository:
         ).one_or_none()
         if row is None:
             return None
-        confirmed_at = row[4]
-        if confirmed_at is not None and confirmed_at.tzinfo is None:
-            confirmed_at = confirmed_at.replace(tzinfo=UTC)
+        confirmed_at = ensure_utc(row[4])
         return SightingConfirmationResponse(
             sighting_id=row[0],
             is_confirmed=row[1],

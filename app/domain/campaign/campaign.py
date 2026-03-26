@@ -1,20 +1,13 @@
 from dataclasses import dataclass, replace
-from datetime import UTC, date, datetime
-from enum import StrEnum
+from datetime import date, datetime
 
 from app.domain.campaign.errors import (
     CampaignLockedError,
     InactiveCampaignError,
     InvalidCampaignTransition,
 )
-
-
-class CampaignStatus(StrEnum):
-    DRAFT = "draft"
-    ACTIVE = "active"
-    COMPLETED = "completed"
-    ARCHIVED = "archived"
-
+from app.domain.campaign.status import CampaignStatus
+from app.time import utc_now
 
 ALLOWED_TRANSITIONS = {
     CampaignStatus.DRAFT: {CampaignStatus.ACTIVE},
@@ -50,7 +43,7 @@ class Campaign:
         updated_at: datetime | None = None,
     ) -> "Campaign":
         cls._ensure_date_window(start_date, end_date)
-        now = created_at or datetime.now(UTC)
+        now = created_at or utc_now()
         return cls(
             id=id,
             name=name,
@@ -113,7 +106,7 @@ class Campaign:
             raise CampaignLockedError("Sightings in completed campaigns are locked")
 
     def touch(self) -> None:
-        self.updated_at = datetime.now(UTC)
+        self.updated_at = utc_now()
 
     @staticmethod
     def _ensure_date_window(start_date: date, end_date: date) -> None:
