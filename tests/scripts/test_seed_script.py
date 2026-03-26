@@ -7,13 +7,14 @@ from pathlib import Path
 
 
 def test_seed_script_imports_cleanly_without_running_main():
-    seed_script = Path(__file__).resolve().parent.parent / "scripts" / "seed.py"
+    project_root = Path(__file__).resolve().parents[2]
+    seed_script = project_root / "scripts" / "seed.py"
 
     runpy.run_path(str(seed_script), run_name="seed_script_for_test")
 
 
 def test_seed_script_runs_from_cli_and_populates_database(tmp_path):
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = Path(__file__).resolve().parents[2]
     db_path = tmp_path / "seed_test.db"
     seed_script = project_root / "scripts" / "seed.py"
     seed_module = runpy.run_path(str(seed_script), run_name="seed_script_metadata")

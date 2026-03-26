@@ -1,4 +1,4 @@
-from app.domain.campaigns import Campaign, CampaignStatus
+from app.domain.campaign import Campaign, CampaignStatus
 from app.domain.sightings import Sighting
 from app.models import Campaign as CampaignRecord
 from app.models import Sighting as SightingRecord

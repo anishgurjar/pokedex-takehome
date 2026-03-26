@@ -1,4 +1,4 @@
-from app.domain.campaigns import Campaign, CampaignStatus
+from app.domain.campaign import Campaign, CampaignStatus
 from app.models import Campaign as CampaignRecord
 from app.repositories.campaigns import CampaignRepository
 from app.schemas import (

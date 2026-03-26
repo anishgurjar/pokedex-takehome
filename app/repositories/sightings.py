@@ -9,6 +9,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import AppUser, Pokemon, Sighting
+from app.repositories.errors import InvalidCursorError
 from app.schemas import SightingCreate, SightingListParams, SightingResponse
 
 
@@ -23,10 +24,6 @@ class SightingListResult:
     items: list[SightingResponse]
     total_count: int
     next_cursor: str | None
-
-
-class InvalidCursorError(ValueError):
-    """Raised when a cursor cannot be parsed."""
 
 
 class SightingRepository:

@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
-from app.domain.campaigns import CampaignLockedError, InactiveCampaignError
+from app.domain.campaign import CampaignLockedError, InactiveCampaignError
 from app.repositories.campaigns import CampaignRepository
-from app.repositories.sightings import InvalidCursorError, SightingRepository
+from app.repositories.errors import InvalidCursorError
+from app.repositories.sightings import SightingRepository
 from app.schemas import (
     MessageResponse,
     SightingCreate,

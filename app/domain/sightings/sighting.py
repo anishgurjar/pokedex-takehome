@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from app.domain.campaigns import Campaign
+from app.domain.campaign import Campaign
 
 
 @dataclass

@@ -2,6 +2,12 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from enum import StrEnum
 
+from app.domain.campaign.errors import (
+    CampaignLockedError,
+    InactiveCampaignError,
+    InvalidCampaignTransition,
+)
+
 
 class CampaignStatus(StrEnum):
     DRAFT = "draft"
@@ -16,22 +22,6 @@ ALLOWED_TRANSITIONS = {
     CampaignStatus.COMPLETED: {CampaignStatus.ARCHIVED},
     CampaignStatus.ARCHIVED: set(),
 }
-
-
-class CampaignDomainError(ValueError):
-    """Base class for campaign business-rule violations."""
-
-
-class InvalidCampaignTransition(CampaignDomainError):
-    """Raised when a campaign transition is not allowed."""
-
-
-class InactiveCampaignError(CampaignDomainError):
-    """Raised when a non-active campaign is used for new sightings."""
-
-
-class CampaignLockedError(CampaignDomainError):
-    """Raised when completed or archived campaigns should not be mutated."""
 
 
 @dataclass

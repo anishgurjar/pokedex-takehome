@@ -5,10 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
-from app.domain.campaigns import (
-    CampaignDomainError,
-    InvalidCampaignTransition,
-)
+from app.domain.campaign import CampaignDomainError, InvalidCampaignTransition
 from app.repositories.campaigns import CampaignRepository
 from app.schemas import (
     CampaignCreate,
