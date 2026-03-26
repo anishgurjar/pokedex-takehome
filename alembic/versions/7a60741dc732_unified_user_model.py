@@ -2,7 +2,6 @@
 
 Revision ID: 7a60741dc732
 Revises: 4235c1ee08ed
-Create Date: 2026-03-25 21:30:25.686748
 
 Restructures the user model:
   - Adds app_users (base table with role/email/display_name/status)

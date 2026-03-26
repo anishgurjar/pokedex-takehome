@@ -2,17 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.deps import get_db
+from app.domain.regions import RegionName
 from app.models import Pokemon
 from app.schemas import PokemonResponse, PokemonSearchResult
 
 router = APIRouter(tags=["pokedex"])
-
-REGION_TO_GENERATION = {
-    "kanto": 1,
-    "johto": 2,
-    "hoenn": 3,
-    "sinnoh": 4,
-}
 
 
 @router.get("/pokedex", response_model=list[PokemonResponse])
@@ -37,9 +31,9 @@ def get_pokemon(pokemon_id_or_region: str, db: Session = Depends(get_db)):
     except ValueError:
         pass
 
-    region_lower = pokemon_id_or_region.lower()
-    generation = REGION_TO_GENERATION.get(region_lower)
-    if generation is None:
+    try:
+        generation = RegionName.parse(pokemon_id_or_region).generation
+    except ValueError:
         try:
             generation = int(pokemon_id_or_region)
         except ValueError:
