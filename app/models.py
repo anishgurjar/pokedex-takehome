@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 from app.domain.campaign.status import CampaignStatus
+from app.domain.regions import RegionName
 from app.domain.sightings.enums import SightingWeather, TimeOfDay
 from app.domain.users import UserRole, UserStatus
 from app.time import utc_now
@@ -135,6 +136,10 @@ class Campaign(Base):
         ),
         CheckConstraint("trim(region) <> ''", name="chk_campaigns_region_nonempty"),
         CheckConstraint(
+            f"region IN ({sql_enum_values(RegionName)})",
+            name="chk_campaigns_region",
+        ),
+        CheckConstraint(
             f"status IN ({sql_enum_values(CampaignStatus)})",
             name="chk_campaigns_status",
         ),
@@ -185,6 +190,10 @@ class Sighting(Base):
             name="chk_sightings_time_of_day",
         ),
         CheckConstraint("trim(region) <> ''", name="chk_sightings_region_nonempty"),
+        CheckConstraint(
+            f"region IN ({sql_enum_values(RegionName)})",
+            name="chk_sightings_region",
+        ),
         CheckConstraint("trim(route) <> ''", name="chk_sightings_route_nonempty"),
         CheckConstraint("height > 0", name="chk_sightings_height_positive"),
         CheckConstraint("weight > 0", name="chk_sightings_weight_positive"),
@@ -219,6 +228,11 @@ class Sighting(Base):
             "date",
             "id",
         ),
+        Index("idx_sightings_region_is_confirmed", "region", "is_confirmed"),
+        Index("idx_sightings_region_pokemon", "region", "pokemon_id"),
+        Index("idx_sightings_region_ranger", "region", "ranger_id"),
+        Index("idx_sightings_region_weather", "region", "weather"),
+        Index("idx_sightings_region_time_of_day", "region", "time_of_day"),
         Index("idx_sightings_region_date_id", "region", "date", "id"),
         Index("idx_sightings_pokemon_date_id", "pokemon_id", "date", "id"),
         Index("idx_sightings_ranger_date_id", "ranger_id", "date", "id"),

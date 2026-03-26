@@ -1,8 +1,16 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.domain.campaign.status import CampaignStatus
+from app.domain.regions import RegionName
 from app.domain.sightings.enums import SightingWeather, TimeOfDay
 from app.domain.users import UserRole, UserStatus
 
@@ -83,7 +91,7 @@ class PokemonSearchResult(BaseModel):
 class SightingCreate(BaseModel):
     pokemon_id: int
     campaign_id: str | None = None
-    region: str
+    region: RegionName
     route: str
     date: datetime
     weather: SightingWeather
@@ -95,6 +103,13 @@ class SightingCreate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
 
+    @field_validator("region", mode="before")
+    @classmethod
+    def normalize_region(cls, value: RegionName | str) -> RegionName:
+        if isinstance(value, RegionName):
+            return value
+        return RegionName.parse(value)
+
 
 class SightingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -103,7 +118,7 @@ class SightingResponse(BaseModel):
     pokemon_id: int
     ranger_id: str
     campaign_id: str | None = None
-    region: str
+    region: RegionName
     route: str
     date: datetime
     weather: SightingWeather
@@ -127,7 +142,7 @@ class SightingConfirmationResponse(BaseModel):
 
 class SightingListParams(BaseModel):
     pokemon_id: int | None = None
-    region: str | None = None
+    region: RegionName | None = None
     weather: SightingWeather | None = None
     time_of_day: TimeOfDay | None = None
     ranger_id: str | None = None
@@ -135,6 +150,13 @@ class SightingListParams(BaseModel):
     date_to: datetime | None = None
     limit: int = Field(default=50, ge=1, le=100)
     cursor: str | None = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def normalize_region(cls, value: RegionName | str | None) -> RegionName | None:
+        if value is None or isinstance(value, RegionName):
+            return value
+        return RegionName.parse(value)
 
 
 class SightingListResponse(BaseModel):
@@ -149,9 +171,16 @@ class SightingListResponse(BaseModel):
 class CampaignCreate(BaseModel):
     name: str
     description: str
-    region: str
+    region: RegionName
     start_date: date
     end_date: date
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def normalize_region(cls, value: RegionName | str) -> RegionName:
+        if isinstance(value, RegionName):
+            return value
+        return RegionName.parse(value)
 
     @model_validator(mode="after")
     def validate_dates(self) -> "CampaignCreate":
@@ -163,9 +192,16 @@ class CampaignCreate(BaseModel):
 class CampaignUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
-    region: str | None = None
+    region: RegionName | None = None
     start_date: date | None = None
     end_date: date | None = None
+
+    @field_validator("region", mode="before")
+    @classmethod
+    def normalize_region(cls, value: RegionName | str | None) -> RegionName | None:
+        if value is None or isinstance(value, RegionName):
+            return value
+        return RegionName.parse(value)
 
     @model_validator(mode="after")
     def validate_dates(self) -> "CampaignUpdate":
@@ -188,7 +224,7 @@ class CampaignResponse(BaseModel):
     id: str
     name: str
     description: str
-    region: str
+    region: RegionName
     start_date: date
     end_date: date
     status: CampaignStatus
@@ -209,6 +245,40 @@ class CampaignSummaryResponse(BaseModel):
     contributing_rangers: list[CampaignContributorResponse]
     observation_started_at: datetime | None
     observation_ended_at: datetime | None
+
+
+class RegionSummaryPokemonResponse(BaseModel):
+    pokemon_id: int
+    pokemon_name: str
+    sightings_count: int
+
+
+class RegionSummaryRangerResponse(BaseModel):
+    ranger_id: str
+    ranger_name: str
+    sightings_count: int
+
+
+class RegionWeatherBreakdownResponse(BaseModel):
+    weather: SightingWeather
+    sightings_count: int
+
+
+class RegionTimeOfDayBreakdownResponse(BaseModel):
+    time_of_day: TimeOfDay
+    sightings_count: int
+
+
+class RegionSummaryResponse(BaseModel):
+    region: RegionName
+    total_sightings: int
+    confirmed_sightings: int
+    unconfirmed_sightings: int
+    unique_species_observed: int
+    top_pokemon: list[RegionSummaryPokemonResponse]
+    top_rangers: list[RegionSummaryRangerResponse]
+    weather_breakdown: list[RegionWeatherBreakdownResponse]
+    time_of_day_breakdown: list[RegionTimeOfDayBreakdownResponse]
 
 
 # --- Generic ---
