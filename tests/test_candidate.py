@@ -17,6 +17,7 @@ class TestCandidateSightingFilters:
     - The response includes both the page of results and the total count
     """
 
+    # see: tests/routers/test_sightings.py
     pass
 
 
@@ -32,6 +33,7 @@ class TestCandidateCampaignLifecycle:
     - Sightings tied to a completed campaign are locked (cannot be deleted)
     """
 
+    # see: tests/routers/test_campaigns.py
     pass
 
 
@@ -46,4 +48,5 @@ class TestCandidateConfirmation:
     - Only rangers (not trainers) can confirm sightings
     """
 
+    # see: tests/routers/test_sightings.py
     pass

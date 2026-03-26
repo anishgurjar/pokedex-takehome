@@ -114,6 +114,14 @@ class SightingResponse(BaseModel):
     ranger_name: str | None = None
 
 
+class SightingConfirmationResponse(BaseModel):
+    sighting_id: str
+    is_confirmed: bool
+    confirmed_by_ranger_id: str | None = None
+    confirmed_by_ranger_name: str | None = None
+    confirmed_at: datetime | None = None
+
+
 class SightingListParams(BaseModel):
     pokemon_id: int | None = None
     region: str | None = None
