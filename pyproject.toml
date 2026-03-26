@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "poketracker"
 version = "0.1.0"
@@ -32,3 +36,6 @@ ignore = ["B008"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
