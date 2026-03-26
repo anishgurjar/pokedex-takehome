@@ -1,0 +1,301 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Endeavor PokéTracker API",
+		"description": "FastAPI surface for the PokéTracker service.\n\n**Setup:** Run `uv run uvicorn app.main:app --reload` (see README). Set **`baseUrl`** (default `http://127.0.0.1:8000`).\n\n**Ranger JWT:** Endpoints marked *Ranger auth* need `Authorization: Bearer <token>`. Mint a token with the same **`JWT_SECRET`** as `.env`. Claims: `sub` = ranger user UUID from `POST /rangers`, `role` = `ranger`, `status` = `active`, `exp` = future Unix time. Example:\n\n`RANGER_ID='<uuid>' uv run python -c \"import jwt,os; from pathlib import Path; from dotenv import load_dotenv; from datetime import datetime,timedelta,UTC; load_dotenv(Path('.')/'.env'); secret=os.environ.get('JWT_SECRET','dev-secret-change-me-please-use-at-least-32-bytes'); print(jwt.encode({'sub':os.environ['RANGER_ID'],'role':'ranger','status':'active','exp':datetime.now(UTC)+timedelta(hours=24)}, secret, algorithm='HS256'))\"`\n\nUse **`ranger_token`** for the primary ranger and **`ranger2_token`** for a second ranger (needed to confirm sightings — rangers cannot confirm their own).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+		{ "key": "ranger_token", "value": "" },
+		{ "key": "ranger2_token", "value": "" },
+		{ "key": "trainer_id", "value": "" },
+		{ "key": "ranger_id", "value": "" },
+		{ "key": "ranger2_id", "value": "" },
+		{ "key": "campaign_id", "value": "" },
+		{ "key": "sighting_id", "value": "" }
+	],
+	"item": [
+		{
+			"name": "Trainers",
+			"item": [
+				{
+					"name": "Create trainer",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Ash Ketchum\",\n  \"email\": \"ash@example.com\"\n}"
+						},
+						"url": "{{baseUrl}}/trainers",
+						"description": "Creates an app user with role `trainer`."
+					}
+				},
+				{
+					"name": "Get trainer by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/trainers/{{trainer_id}}",
+						"description": "Set `trainer_id` from the create response."
+					}
+				}
+			]
+		},
+		{
+			"name": "Rangers",
+			"item": [
+				{
+					"name": "Create ranger",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Misty Waterflower\",\n  \"email\": \"misty@example.com\",\n  \"specialization\": \"Water types\"\n}"
+						},
+						"url": "{{baseUrl}}/rangers",
+						"description": "Creates a ranger profile. Use returned `id` as `sub` when minting `ranger_token`."
+					}
+				},
+				{
+					"name": "Get ranger by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/rangers/{{ranger_id}}",
+						"description": "Set `ranger_id` from the create response."
+					}
+				},
+				{
+					"name": "List ranger sightings",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/rangers/{{ranger_id}}/sightings",
+						"description": "All sightings logged by this ranger."
+					}
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Lookup user by display name",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/users/lookup?name=Misty%20Waterflower",
+						"description": "Case-insensitive match on normalized display name."
+					}
+				}
+			]
+		},
+		{
+			"name": "Pokédex",
+			"item": [
+				{
+					"name": "List all Pokémon",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/pokedex",
+						"description": "Reference species table."
+					}
+				},
+				{
+					"name": "Search Pokémon by name prefix",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/pokedex/search?name=Bul",
+						"description": "`name` query param required; prefix match (case-insensitive)."
+					}
+				},
+				{
+					"name": "Get Pokémon by numeric id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/pokedex/1",
+						"description": "Single species when the path segment parses as an integer."
+					}
+				},
+				{
+					"name": "List Pokémon by region or generation",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/pokedex/Kanto",
+						"description": "Region names: Kanto, Johto, Hoenn, Sinnoh — or use generation number `1`–`4`."
+					}
+				}
+			]
+		},
+		{
+			"name": "Regions",
+			"item": [
+				{
+					"name": "Region summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/regions/Kanto/summary",
+						"description": "Aggregates: totals, top species, top rangers, weather and time-of-day breakdowns."
+					}
+				}
+			]
+		},
+		{
+			"name": "Sightings",
+			"item": [
+				{
+					"name": "List sightings (cursor)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/sightings?limit=50",
+						"description": "Optional query params: `cursor`, `pokemon_id`, `region`, `weather`, `time_of_day`, `ranger_id`, `date_from`, `date_to`, `limit` (1–100). `weather`: sunny, rainy, snowy, sandstorm, foggy, clear. `time_of_day`: morning, day, night."
+					}
+				},
+				{
+					"name": "Create sighting",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"pokemon_id\": 1,\n  \"campaign_id\": null,\n  \"region\": \"Kanto\",\n  \"route\": \"Route 1\",\n  \"date\": \"2025-06-15T14:30:00\",\n  \"weather\": \"sunny\",\n  \"time_of_day\": \"day\",\n  \"height\": 0.7,\n  \"weight\": 6.9,\n  \"is_shiny\": false,\n  \"notes\": \"Field note\",\n  \"latitude\": null,\n  \"longitude\": null\n}"
+						},
+						"url": "{{baseUrl}}/sightings",
+						"description": "Ranger auth required. Use `campaign_id: null` unless you have an **active** campaign UUID (paste or use `{{campaign_id}}`)."
+					}
+				},
+				{
+					"name": "Get sighting by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/sightings/{{sighting_id}}",
+						"description": "Public read."
+					}
+				},
+				{
+					"name": "Confirm sighting",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger2_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [],
+						"url": "{{baseUrl}}/sightings/{{sighting_id}}/confirm",
+						"description": "Ranger auth; confirmer must be a **different** ranger than the author."
+					}
+				},
+				{
+					"name": "Get sighting confirmation",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/sightings/{{sighting_id}}/confirmation",
+						"description": "Returns confirmation metadata (may be unconfirmed)."
+					}
+				},
+				{
+					"name": "Delete sighting",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger_token}}", "type": "string" }]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": "{{baseUrl}}/sightings/{{sighting_id}}",
+						"description": "Ranger auth; only the owning ranger may delete."
+					}
+				}
+			]
+		},
+		{
+			"name": "Campaigns",
+			"item": [
+				{
+					"name": "Create campaign",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Spring Kanto Survey\",\n  \"description\": \"Regional biodiversity index\",\n  \"region\": \"Kanto\",\n  \"start_date\": \"2025-01-01\",\n  \"end_date\": \"2025-12-31\"\n}"
+						},
+						"url": "{{baseUrl}}/campaigns",
+						"description": "Ranger auth. New campaigns start in `draft` (201 Created)."
+					}
+				},
+				{
+					"name": "Get campaign by id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/campaigns/{{campaign_id}}",
+						"description": "Set `campaign_id` from create response."
+					}
+				},
+				{
+					"name": "Update campaign",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger_token}}", "type": "string" }]
+						},
+						"method": "PATCH",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Updated description\"\n}"
+						},
+						"url": "{{baseUrl}}/campaigns/{{campaign_id}}",
+						"description": "Ranger auth. PATCH only the fields you want to change (`name`, `description`, `region`, `start_date`, `end_date`)."
+					}
+				},
+				{
+					"name": "Transition campaign status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{ranger_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"to_status\": \"active\"\n}"
+						},
+						"url": "{{baseUrl}}/campaigns/{{campaign_id}}/transition",
+						"description": "Allowed chain: `draft` → `active` → `completed` → `archived`. Edit `to_status` accordingly."
+					}
+				},
+				{
+					"name": "Campaign summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": "{{baseUrl}}/campaigns/{{campaign_id}}/summary",
+						"description": "Sightings totals and contributing rangers for this campaign."
+					}
+				}
+			]
+		}
+	]
+}

@@ -39,6 +39,10 @@ Set **`SEED_SIGHTING_COUNT`** (default `55000`) if you want fewer sightings for 
 
 Routers cover trainers, rangers, Pokédex reference data, sightings (list, CRUD, peer confirmation), research **campaigns** (lifecycle + summaries), and **regional** aggregates. Protected ranger actions expect **`Authorization: Bearer <JWT>`** signed with **`JWT_SECRET`** (see `app/auth.py` for claims; **`tests/conftest.py`** shows how tests mint tokens). **NOTES.md** explains how this differs from the original `X-User-ID` wording in the exercise brief.
 
+## API testing (Postman)
+
+Import **[`Poketracker.postman_collection.json`](./Poketracker.postman_collection.json)** into Postman (or any OpenAPI-compatible client that accepts Postman v2.1 collections). Start the API (`uv run uvicorn app.main:app --reload`), set the collection **`baseUrl`** to your server (default `http://127.0.0.1:8000`), create rangers via **Create ranger** if you need JWT subjects, then mint bearer tokens with the same **`JWT_SECRET`** as `.env` and paste them into **`ranger_token`** / **`ranger2_token`**. The collection description includes a one-liner for minting tokens; use a second ranger token to exercise **Confirm sighting** (rangers cannot confirm their own sightings).
+
 ## Migrations
 
 **Apply all pending migrations**
