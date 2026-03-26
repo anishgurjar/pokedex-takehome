@@ -307,7 +307,7 @@ We also have a **private test suite** that we will use when evaluating your subm
 
 ### Candidate-Written Tests (Required)
 
-At the bottom of `tests/test_public.py`, you'll find three test classes with docstrings describing scenarios you must test:
+In `tests/test_candidate.py`, you'll find three test classes with docstrings describing scenarios you must test:
 
 - `TestCandidateSightingFilters` — tests for the sighting filter/pagination endpoint
 - `TestCandidateCampaignLifecycle` — tests for campaign state transitions and sighting association

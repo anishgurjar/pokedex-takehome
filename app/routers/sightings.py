@@ -1,6 +1,9 @@
-from fastapi import APIRouter, Depends, Header, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentPrincipal, require_role
 from app.deps import get_db
 from app.models import AppUser, Pokemon, Sighting
 from app.schemas import MessageResponse, SightingCreate, SightingResponse
@@ -8,33 +11,19 @@ from app.schemas import MessageResponse, SightingCreate, SightingResponse
 router = APIRouter(tags=["sightings"])
 
 
-def _get_ranger_or_raise(db: Session, x_user_id: str | None) -> AppUser:
-    """Resolve X-User-ID to an active ranger, raising appropriate HTTP errors."""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-ID header is required")
-    user = db.query(AppUser).filter(AppUser.id == x_user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    if user.role != "ranger":
-        raise HTTPException(status_code=403, detail="Only rangers can log sightings")
-    return user
-
-
 @router.post("/sightings", response_model=SightingResponse)
 def create_sighting(
     sighting: SightingCreate,
+    principal: Annotated[CurrentPrincipal, Depends(require_role("ranger"))],
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(None),
 ):
-    ranger = _get_ranger_or_raise(db, x_user_id)
-
     pokemon = db.query(Pokemon).filter(Pokemon.id == sighting.pokemon_id).first()
     if not pokemon:
         raise HTTPException(status_code=404, detail="Pokémon not found")
 
     new_sighting = Sighting(
         pokemon_id=sighting.pokemon_id,
-        ranger_id=x_user_id,
+        ranger_id=principal.user_id,
         region=sighting.region,
         route=sighting.route,
         date=sighting.date,
@@ -53,7 +42,7 @@ def create_sighting(
 
     resp = SightingResponse.model_validate(new_sighting)
     resp.pokemon_name = pokemon.name
-    resp.ranger_name = ranger.display_name
+    resp.ranger_name = principal.display_name
     return resp
 
 
@@ -75,17 +64,14 @@ def get_sighting(sighting_id: str, db: Session = Depends(get_db)):
 @router.delete("/sightings/{sighting_id}", response_model=MessageResponse)
 def delete_sighting(
     sighting_id: str,
+    principal: Annotated[CurrentPrincipal, Depends(require_role("ranger"))],
     db: Session = Depends(get_db),
-    x_user_id: str | None = Header(None),
 ):
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-ID header is required")
-
     sighting = db.query(Sighting).filter(Sighting.id == sighting_id).first()
     if not sighting:
         raise HTTPException(status_code=404, detail="Sighting not found")
 
-    if sighting.ranger_id != x_user_id:
+    if sighting.ranger_id != principal.user_id:
         raise HTTPException(
             status_code=403, detail="You can only delete your own sightings"
         )
