@@ -13,3 +13,11 @@ load_dotenv(_PROJECT_ROOT / ".env", override=False)
 def get_database_url() -> str:
     """SQLite URL for SQLAlchemy. Set `DATABASE_URL` in `.env`."""
     return os.environ.get("DATABASE_URL", "sqlite:///./data/poketracker.db")
+
+
+def get_jwt_secret() -> str:
+    """HMAC secret for signing dev bearer tokens."""
+    return os.environ.get(
+        "JWT_SECRET",
+        "dev-secret-change-me-please-use-at-least-32-bytes",
+    )

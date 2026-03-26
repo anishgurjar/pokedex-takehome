@@ -3,8 +3,10 @@
 import os
 import uuid
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import jwt
 from dotenv import load_dotenv
 from sqlalchemy.engine.url import make_url
 
@@ -68,7 +70,8 @@ def db_session() -> Generator[Session, None, None]:
 @pytest.fixture
 def client(db_session: Session):
     """FastAPI client using the migrated test database."""
-    from app.main import app, get_db
+    from app.deps import get_db
+    from app.main import app
     from fastapi.testclient import TestClient
 
     def override_get_db():
@@ -213,7 +216,9 @@ def sample_ranger(client):
             "specialization": "Electric",
         },
     )
-    return response.json()
+    data = response.json()
+    data["role"] = "ranger"
+    return data
 
 
 @pytest.fixture
@@ -227,7 +232,9 @@ def second_ranger(client):
             "specialization": "Water",
         },
     )
-    return response.json()
+    data = response.json()
+    data["role"] = "ranger"
+    return data
 
 
 @pytest.fixture
@@ -240,11 +247,13 @@ def sample_trainer(client):
             "email": "red@pokemon-league.org",
         },
     )
-    return response.json()
+    data = response.json()
+    data["role"] = "trainer"
+    return data
 
 
 @pytest.fixture
-def sample_sighting(client, sample_pokemon, sample_ranger):
+def sample_sighting(client, sample_pokemon, sample_ranger, auth_headers_for):
     """Create a sample sighting and return the response data."""
     response = client.post(
         "/sightings",
@@ -260,6 +269,56 @@ def sample_sighting(client, sample_pokemon, sample_ranger):
             "is_shiny": False,
             "notes": "Spotted near Viridian City",
         },
-        headers={"X-User-ID": sample_ranger["id"]},
+        headers=auth_headers_for(sample_ranger),
     )
     return response.json()
+
+
+@pytest.fixture
+def auth_token_factory():
+    """Issue signed test tokens matching the app's bearer-token contract."""
+
+    def _issue_token(
+        *,
+        user_id: str,
+        role: str,
+        status: str = "active",
+        display_name: str | None = None,
+        expires_in_minutes: int = 30,
+    ) -> str:
+        payload = {
+            "sub": user_id,
+            "role": role,
+            "status": status,
+            "exp": datetime.now(UTC) + timedelta(minutes=expires_in_minutes),
+        }
+        if display_name:
+            payload["name"] = display_name
+        secret = os.environ.get(
+            "JWT_SECRET",
+            "dev-secret-change-me-please-use-at-least-32-bytes",
+        )
+        return jwt.encode(payload, secret, algorithm="HS256")
+
+    return _issue_token
+
+
+@pytest.fixture
+def auth_headers_for(auth_token_factory):
+    """Build Authorization headers for a test principal."""
+
+    def _headers(
+        user: dict,
+        *,
+        role: str | None = None,
+        status: str = "active",
+    ) -> dict:
+        token = auth_token_factory(
+            user_id=user["id"],
+            role=role or user["role"],
+            status=status,
+            display_name=user.get("name"),
+        )
+        return {"Authorization": f"Bearer {token}"}
+
+    return _headers

@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.18.4",
     "fastapi>=0.131.0",
+    "pyjwt>=2.12.1",
     "python-dotenv>=1.2.2",
     "sqlalchemy>=2.0.46",
     "uvicorn>=0.41.0",

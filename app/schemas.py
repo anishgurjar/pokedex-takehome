@@ -12,11 +12,10 @@ class TrainerCreate(BaseModel):
 
 
 class TrainerResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: str
     name: str
     email: str
+    status: str
     created_at: datetime
 
 
@@ -30,12 +29,11 @@ class RangerCreate(BaseModel):
 
 
 class RangerResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: str
     name: str
     email: str
     specialization: str
+    status: str
     created_at: datetime
 
 
