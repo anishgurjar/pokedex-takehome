@@ -1,21 +1,19 @@
-from fastapi import FastAPI, HTTPException, Header, Query, Depends
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional, Any
-from datetime import datetime
 
-from app.database import engine, SessionLocal, Base
-from app.models import Pokemon, Trainer, Ranger, Sighting
+from app.database import Base, SessionLocal, engine
+from app.models import Pokemon, Ranger, Sighting, Trainer
 from app.schemas import (
-    TrainerCreate,
-    TrainerResponse,
-    RangerCreate,
-    RangerResponse,
+    MessageResponse,
     PokemonResponse,
     PokemonSearchResult,
+    RangerCreate,
+    RangerResponse,
     SightingCreate,
     SightingResponse,
+    TrainerCreate,
+    TrainerResponse,
     UserLookupResponse,
-    MessageResponse,
 )
 
 Base.metadata.create_all(bind=engine)
@@ -24,6 +22,7 @@ app = FastAPI(title="Endeavor PokéTracker", version="0.0.1")
 
 
 # ---------- helpers ----------
+
 
 def get_db():
     db = SessionLocal()
@@ -43,6 +42,7 @@ REGION_TO_GENERATION = {
 
 # ---------- Trainers ----------
 
+
 @app.post("/trainers")
 def create_trainer(trainer: TrainerCreate, db: Session = Depends(get_db)) -> Trainer:
     new_trainer = Trainer(name=trainer.name, email=trainer.email)
@@ -61,6 +61,7 @@ def get_trainer(trainer_id: str, db: Session = Depends(get_db)):
 
 
 # ---------- Rangers ----------
+
 
 @app.post("/rangers", response_model=RangerResponse)
 def create_ranger(ranger: RangerCreate, db: Session = Depends(get_db)):
@@ -101,6 +102,7 @@ def get_ranger_sightings(ranger_id: str, db: Session = Depends(get_db)):
 
 # ---------- User Lookup ----------
 
+
 @app.get("/users/lookup", response_model=UserLookupResponse)
 def lookup_user(name: str = Query(...), db: Session = Depends(get_db)):
     trainer = db.query(Trainer).filter(Trainer.name == name).first()
@@ -113,6 +115,7 @@ def lookup_user(name: str = Query(...), db: Session = Depends(get_db)):
 
 
 # ---------- Pokédex ----------
+
 
 @app.get("/pokedex", response_model=list[PokemonResponse])
 def list_pokemon(db: Session = Depends(get_db)):
@@ -144,7 +147,9 @@ def get_pokemon(pokemon_id_or_region: str, db: Session = Depends(get_db)):
         try:
             generation = int(pokemon_id_or_region)
         except ValueError:
-            raise HTTPException(status_code=404, detail="Invalid Pokémon ID or region name")
+            raise HTTPException(
+                status_code=404, detail="Invalid Pokémon ID or region name"
+            ) from None
 
     pokemon_list = db.query(Pokemon).filter(Pokemon.generation == generation).all()
     return [PokemonResponse.model_validate(p) for p in pokemon_list]
@@ -152,11 +157,12 @@ def get_pokemon(pokemon_id_or_region: str, db: Session = Depends(get_db)):
 
 # ---------- Sightings ----------
 
+
 @app.post("/sightings", response_model=SightingResponse)
 def create_sighting(
     sighting: SightingCreate,
     db: Session = Depends(get_db),
-    x_user_id: Optional[str] = Header(None),
+    x_user_id: str | None = Header(None),
 ):
     if not x_user_id:
         raise HTTPException(status_code=401, detail="X-User-ID header is required")
@@ -215,7 +221,7 @@ def get_sighting(sighting_id: str, db: Session = Depends(get_db)):
 def delete_sighting(
     sighting_id: str,
     db: Session = Depends(get_db),
-    x_user_id: Optional[str] = Header(None),
+    x_user_id: str | None = Header(None),
 ):
     if not x_user_id:
         raise HTTPException(status_code=401, detail="X-User-ID header is required")
@@ -225,7 +231,9 @@ def delete_sighting(
         raise HTTPException(status_code=404, detail="Sighting not found")
 
     if sighting.ranger_id != x_user_id:
-        raise HTTPException(status_code=403, detail="You can only delete your own sightings")
+        raise HTTPException(
+            status_code=403, detail="You can only delete your own sightings"
+        )
 
     db.delete(sighting)
     db.commit()

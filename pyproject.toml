@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Pokémon Research Institute - Pokédex Tracker API"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.4",
     "fastapi>=0.131.0",
     "sqlalchemy>=2.0.46",
     "uvicorn>=0.41.0",
@@ -12,6 +13,21 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pre-commit>=4.5.1",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.7",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+# FastAPI uses Depends() in parameter defaults by design.
+ignore = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"

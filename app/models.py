@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -19,8 +18,8 @@ class Pokemon(Base):
     is_legendary: Mapped[bool] = mapped_column(default=False)
     is_mythical: Mapped[bool] = mapped_column(default=False)
     is_baby: Mapped[bool] = mapped_column(default=False)
-    type2: Mapped[Optional[str]] = mapped_column(default=None)
-    evolution_chain_id: Mapped[Optional[int]] = mapped_column(default=None)
+    type2: Mapped[str | None] = mapped_column(default=None)
+    evolution_chain_id: Mapped[int | None] = mapped_column(default=None)
 
 
 class Trainer(Base):
@@ -29,10 +28,15 @@ class Trainer(Base):
     name: Mapped[str]
     email: Mapped[str]
     id: Mapped[str] = mapped_column(
-        primary_key=True, init=False, default_factory=generate_uuid, insert_default=generate_uuid,
+        primary_key=True,
+        init=False,
+        default_factory=generate_uuid,
+        insert_default=generate_uuid,
     )
     created_at: Mapped[datetime] = mapped_column(
-        init=False, default_factory=datetime.utcnow, insert_default=datetime.utcnow,
+        init=False,
+        default_factory=datetime.utcnow,
+        insert_default=datetime.utcnow,
     )
 
 
@@ -43,10 +47,15 @@ class Ranger(Base):
     email: Mapped[str]
     specialization: Mapped[str]
     id: Mapped[str] = mapped_column(
-        primary_key=True, init=False, default_factory=generate_uuid, insert_default=generate_uuid,
+        primary_key=True,
+        init=False,
+        default_factory=generate_uuid,
+        insert_default=generate_uuid,
     )
     created_at: Mapped[datetime] = mapped_column(
-        init=False, default_factory=datetime.utcnow, insert_default=datetime.utcnow,
+        init=False,
+        default_factory=datetime.utcnow,
+        insert_default=datetime.utcnow,
     )
 
 
@@ -63,10 +72,13 @@ class Sighting(Base):
     height: Mapped[float]
     weight: Mapped[float]
     is_shiny: Mapped[bool] = mapped_column(default=False)
-    notes: Mapped[Optional[str]] = mapped_column(Text, default=None)
-    latitude: Mapped[Optional[float]] = mapped_column(default=None)
-    longitude: Mapped[Optional[float]] = mapped_column(default=None)
+    notes: Mapped[str | None] = mapped_column(Text, default=None)
+    latitude: Mapped[float | None] = mapped_column(default=None)
+    longitude: Mapped[float | None] = mapped_column(default=None)
     is_confirmed: Mapped[bool] = mapped_column(default=False)
     id: Mapped[str] = mapped_column(
-        primary_key=True, init=False, default_factory=generate_uuid, insert_default=generate_uuid,
+        primary_key=True,
+        init=False,
+        default_factory=generate_uuid,
+        insert_default=generate_uuid,
     )

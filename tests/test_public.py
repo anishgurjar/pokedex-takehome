@@ -2,19 +2,21 @@
 Public test suite for the PokéTracker API.
 """
 
-import pytest
-
 
 # ============================================================
 # Trainer & Ranger Registration
 # ============================================================
 
+
 class TestTrainerRegistration:
     def test_create_trainer(self, client):
-        response = client.post("/trainers", json={
-            "name": "Trainer Red",
-            "email": "red@pokemon-league.org",
-        })
+        response = client.post(
+            "/trainers",
+            json={
+                "name": "Trainer Red",
+                "email": "red@pokemon-league.org",
+            },
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Trainer Red"
@@ -33,11 +35,14 @@ class TestTrainerRegistration:
 
 class TestRangerRegistration:
     def test_create_ranger(self, client):
-        response = client.post("/rangers", json={
-            "name": "Ranger Ash",
-            "email": "ash@pokemon-institute.org",
-            "specialization": "Electric",
-        })
+        response = client.post(
+            "/rangers",
+            json={
+                "name": "Ranger Ash",
+                "email": "ash@pokemon-institute.org",
+                "specialization": "Electric",
+            },
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Ranger Ash"
@@ -57,6 +62,7 @@ class TestRangerRegistration:
 # ============================================================
 # User Lookup
 # ============================================================
+
 
 class TestUserLookup:
     def test_lookup_trainer_by_name(self, client, sample_trainer):
@@ -81,6 +87,7 @@ class TestUserLookup:
 # ============================================================
 # Pokédex
 # ============================================================
+
 
 class TestPokedex:
     def test_list_pokemon(self, client, sample_pokemon):
@@ -121,6 +128,7 @@ class TestPokedex:
 # Sightings (Basic CRUD)
 # ============================================================
 
+
 class TestSightings:
     def test_create_sighting(self, client, sample_pokemon, sample_ranger):
         response = client.post(
@@ -146,7 +154,9 @@ class TestSightings:
         assert data["ranger_id"] == sample_ranger["id"]
         assert data["is_confirmed"] is False
 
-    def test_create_sighting_requires_ranger(self, client, sample_pokemon, sample_trainer):
+    def test_create_sighting_requires_ranger(
+        self, client, sample_pokemon, sample_trainer
+    ):
         """Trainers should not be able to log sightings."""
         response = client.post(
             "/sightings",
@@ -181,7 +191,9 @@ class TestSightings:
         )
         assert response.status_code == 401
 
-    def test_create_sighting_invalid_weather(self, client, sample_pokemon, sample_ranger):
+    def test_create_sighting_invalid_weather(
+        self, client, sample_pokemon, sample_ranger
+    ):
         response = client.post(
             "/sightings",
             json={
@@ -257,6 +269,7 @@ class TestRangerSightings:
 #
 # You may add helper fixtures in conftest.py if needed.
 
+
 class TestCandidateSightingFilters:
     """
     Write tests for the GET /sightings endpoint (Feature 1).
@@ -267,6 +280,7 @@ class TestCandidateSightingFilters:
     - Combining multiple filters narrows results correctly
     - The response includes both the page of results and the total count
     """
+
     pass
 
 
@@ -281,6 +295,7 @@ class TestCandidateCampaignLifecycle:
     - A sighting CANNOT be added to a non-active campaign (draft, completed, archived)
     - Sightings tied to a completed campaign are locked (cannot be deleted)
     """
+
     pass
 
 
@@ -294,4 +309,5 @@ class TestCandidateConfirmation:
     - A sighting cannot be confirmed more than once
     - Only rangers (not trainers) can confirm sightings
     """
+
     pass
